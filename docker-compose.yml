@@ -1,0 +1,23 @@
+# 方案 2：Docker Compose + 云端 API（DashScope）
+services:
+  airobot:
+    build: .
+    image: airobot:latest
+    container_name: airobot
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # 指向云端 API（阿里云 DashScope）
+      AIROBOT_LLM_BASE_URL: https://llm-n6s4a2269s6eywcq.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+      AIROBOT_EMBEDDING_BASE_URL: https://llm-n6s4a2269s6eywcq.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+      # 默认关闭重排（节省资源），如需开启请设为 "true"
+      AIROBOT_RERANK_ENABLED: "false"
+    volumes:
+      - ./data:/app/data # 知识库热更新
+      - hf-cache:/root/.cache/huggingface # 缓存（可选）
+    restart: unless-stopped
+
+volumes:
+  hf-cache:
