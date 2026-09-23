@@ -11,3 +11,4 @@ data/uploads/
 .idea/
 .vscode/
 .DS_Store
+testdb/
