@@ -35,10 +35,11 @@ def extract_text_from_pdf(filename, page_numbers=None):
 
 # 向量数据库类
 class MyVectorDBConnector:
-    def __init__(self, collection_name):
-        client = chromadb.PersistentClient(path=r"/Users/shenma/Documents/project/AI-Robot/testdb")
+    def __init__(self, collection_name, openai_client):
+        chroma_client = chromadb.PersistentClient(path=r"/Users/shenma/Documents/project/AI-Robot/testdb")
         # 创建一个 collection
-        self.collection = client.get_or_create_collection(name=collection_name)
+        self.collection = chroma_client.get_or_create_collection(name=collection_name)
+        self.openai_client = openai_client
 
     # 使用智谱的模型进行向量化
     def get_embeddings(self, texts, model="text-embedding-v4", batch_size=10):
@@ -47,7 +48,7 @@ class MyVectorDBConnector:
         # 分批处理，每批最多 batch_size 条文本
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            data = client.embeddings.create(input=batch, model=model).data
+            data = self.openai_client.embeddings.create(input=batch, model=model).data
             all_embeddings.extend([x.embedding for x in data])
         return all_embeddings
 
@@ -67,17 +68,18 @@ class MyVectorDBConnector:
         )
         return results
 
-
+# RAG 机器人类
 class RAG_Bot:
-    def __init__(self, vector_db, n_results=2):
+    def __init__(self, vector_db, openai_client, n_results=2):
         self.vector_db = vector_db
+        self.openai_client = openai_client
         self.n_results = n_results
 
     # llm模型
     def get_completion(self, prompt, model="qwen-plus"):
         '''封装 千问 接口'''
         messages = [{"role": "user", "content": prompt}]
-        response = client.chat.completions.create(
+        response = self.openai_client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=0,  # 模型输出的随机性，0 表示随机性最小
@@ -97,7 +99,7 @@ class RAG_Bot:
         response = self.get_completion(prompt)
         return response
 
-
+#主函数
 if __name__ == '__main__':
     load_dotenv()
     client = OpenAI(api_key=os.getenv("AIROBOT_LLM_API_KEY"),
@@ -117,20 +119,22 @@ if __name__ == '__main__':
     请用中文回答用户问题。
     """
     # 使用示例
-    docx_filename = "财务管理文档.pdf"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    docx_filename = os.path.join(script_dir, "财务管理文档.pdf")
     # 读取Word文件
     # paragraphs = extract_text_from_docx(docx_filename, min_line_length=10)
     paragraphs = extract_text_from_pdf(docx_filename, page_numbers=[0, 1, 2])
     # print(paragraphs)
 
     # 创建一个向量数据库对象
-    vector_db = MyVectorDBConnector("demo")
+    vector_db = MyVectorDBConnector("demo", client)
     # 向向量数据库中添加文档
     vector_db.add_documents(paragraphs)
 
     # 创建一个RAG机器人
     bot = RAG_Bot(
-        vector_db
+        vector_db,
+        client
     )
     user_query = "财务管理权限划分?"
     response = bot.chat(user_query)

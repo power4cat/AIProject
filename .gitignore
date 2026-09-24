@@ -12,3 +12,4 @@ data/uploads/
 .vscode/
 .DS_Store
 testdb/
+faiss_index/
